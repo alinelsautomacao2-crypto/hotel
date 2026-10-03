@@ -1,0 +1,6 @@
+{
+  "name": "Sanctuário Hotel & Spa 5★",
+  "description": "Experiência mobile de ultraluxo 5 estrelas: reserva de vilas e suítes com mordomo privativo, spa botânico e alta gastronomia Michelin.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
