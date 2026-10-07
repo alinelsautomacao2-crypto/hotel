@@ -10,6 +10,7 @@ dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === 'production';
 const PORT = Number(process.env.PORT) || 3000;
+const PROJETO_SENAI_URL = process.env.PROJETO_SENAI_URL?.replace(/\/$/, '');
 
 // Google Gemini AI Client
 const ai = new GoogleGenAI({
@@ -21,8 +22,26 @@ const ai = new GoogleGenAI({
   },
 });
 
+async function callProjectSenaiAgent(message: string, history?: any[]) {
+  if (!PROJETO_SENAI_URL) return null;
+
+  const response = await fetch(`${PROJETO_SENAI_URL}/api/agent/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ message, history: Array.isArray(history) ? history : [] }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`External agent responded with ${response.status}`);
+  }
+
+  return await response.json();
+}
+
 const SYSTEM_INSTRUCTION = `
-Você é Charles, o Concierge Virtual e Mordomo Pessoal de Inteligência Artificial do Sanctuário Hotel & Spa 5★ (chancelado pelo Forbes Travel Guide 5-Star 2026 e The Leading Hotels of the World), impulsionado por Google Gemini AI.
+Você é Charles, o Concierge Virtual e Mordomo Pessoal de Inteligência Artificial do Sanctuário Hotel & Spa 5★ (chancelado pelo Forbes Travel Guide 5-Star 2026 e The Leading Hotels of the Wor[...]
 
 Sua missão é proporcionar atendimento acolhedor, sofisticado, refinado e altamente eficiente para hóspedes de ultraluxo (UHNW).
 
@@ -46,7 +65,7 @@ INFORMAÇÕES OFICIAIS DO HOTEL SANCTUÁRIO:
 - Para membros do Ambassador Club / Hóspedes VIP: Check-in flexível 24h a qualquer momento e Late Check-out estendido garantido até as 18:00 (mediante disponibilidade).
 
 3. Gastronomia & Bares (Dining Options):
-- Restaurante Éos (2 Estrelas no Guia Michelin): Comandado pelo Chef Executivo Matteo Valente. Menu degustação de 9 tempos (€320 / R$ 1.950 por pessoa) com frutos do mar nobres e botânicos da estufa orgânica. Harmonização pelo Head Sommelier. Horários de reserva: 19:00, 20:15 e 21:30.
+- Restaurante Éos (2 Estrelas no Guia Michelin): Comandado pelo Chef Executivo Matteo Valente. Menu degustação de 9 tempos (€320 / R$ 1.950 por pessoa) com frutos do mar nobres e botânicos d[...]
 - Horizon Rooftop Lounge: Mixologia botânica autoral, destilados raros e pôr do sol com jazz ao vivo (€140 / R$ 850 por pessoa) das 17:00 às 00:00.
 - Room Service 24h & Café da Manhã na Suíte: Servido em qualquer horário sem taxa adicional.
 - Cardápio de Room Service Express & À La Carte:
@@ -68,8 +87,8 @@ INFORMAÇÕES OFICIAIS DO HOTEL SANCTUÁRIO:
 - Horários de atendimento do Spa: 09:00 às 21:00 diariamente.
 
 5. Transferência para Atendimento Humano (Human Handover) & Emergências:
-- Quando a solicitação do hóspede for complexa (ex: pedido de casamento personalizado, fretamento de iate náutico, aluguel de supercarros, dietas médicas altamente complexas, qualquer reclamação sensível ou pedido de falar com humano): realize o acolhimento cordial e oriente a transferência para o Head Butler Sr. Charles Henderson via WhatsApp (+55 11 99999-5555) ou Front Desk (+55 11 9999-9988).
-- Em caso de emergência ou socorro médico: Acione o botão de alerta, informe que os primeiros socorros estão sendo mobilizados e conecte imediatamente com a recepção e o pronto atendimento médico.
+- Quando a solicitação do hóspede for complexa (ex: pedido de casamento personalizado, fretamento de iate náutico, aluguel de supercarros, dietas médicas altamente complexas, qualquer reclama[...]
+- Em caso de emergência ou socorro médico: Acione o botão de alerta, informe que os primeiros socorros estão sendo mobilizados e conecte imediatamente com a recepção e o pronto atendimento m[...]
 
 DIRETRIZES DE RESPOSTA DO GEMINI:
 - Mantenha o tom sereno, cortês, caloroso e de extrema discrição.
@@ -82,9 +101,9 @@ function generateLocalConciergeReply(userMessage: string): { reply: string; acti
   const lower = userMessage.toLowerCase();
 
   // Emergency / Medical Help
-  if (lower.includes('socorro') || lower.includes('médic') || lower.includes('emergên') || lower.includes('hospital') || lower.includes('ambulân') || lower.includes('doutor') || lower.includes('remédio')) {
+  if (lower.includes('socorro') || lower.includes('médic') || lower.includes('emergên') || lower.includes('hospital') || lower.includes('ambulân') || lower.includes('doutor') || lower.includes('atendimento médico')) {
     return {
-      reply: '⚠️ Estamos mobilizando a equipe de emergência médica e o pronto atendimento da propriedade imediatamente. Por favor, mantenha a calma. Conectando agora com o Front Desk e a equipe de socorro.',
+      reply: '⚠️ Estamos mobilizando a equipe de emergência médica e o pronto atendimento da propriedade imediatamente. Por favor, mantenha a calma. Conectando agora com o Front Desk e a equipe de suporte médico.',
       actionType: 'handover',
       actionPayload: {
         agentName: 'Front Desk & Emergência Médica',
@@ -107,7 +126,7 @@ function generateLocalConciergeReply(userMessage: string): { reply: string; acti
     lower.includes('whatsapp')
   ) {
     return {
-      reply: '🙋 Terei imensa satisfação em conectá-lo com nosso Head Butler, Sr. Charles Henderson, e nossa mordoria executiva. Você pode se comunicar em tempo real via WhatsApp privativo ou ligação direta.',
+      reply: '🙋 Terei imensa satisfação em conectá-lo com nosso Head Butler, Sr. Charles Henderson, e nossa mordoria executiva. Você pode se comunicar em tempo real via WhatsApp privativo ou pelo ramal da recepção.',
       actionType: 'handover',
       actionPayload: {
         agentName: 'Sr. Charles Henderson (Head Butler)',
@@ -121,16 +140,16 @@ function generateLocalConciergeReply(userMessage: string): { reply: string; acti
   // Check-in / Check-out
   if (lower.includes('check-in') || lower.includes('check-out') || lower.includes('checkin') || lower.includes('checkout') || lower.includes('horário') || lower.includes('chegada') || lower.includes('saída')) {
     return {
-      reply: '🕒 Check-in padrão a partir das 15h00 (recepção privativa na vila pelo mordomo) e check-out até às 12h00.\n\nPara membros VIP do Ambassador Club, oferecemos check-in flexível 24h e late check-out garantido até às 18h00 mediante disponibilidade prévia.',
+      reply: '🕒 Check-in padrão a partir das 15h00 (recepção privativa na vila pelo mordomo) e check-out até às 12h00.\n\nPara membros VIP do Ambassador Club, oferecemos check-in flexível 24h e late check-out até às 18h00, mediante disponibilidade.',
       actionType: 'faq',
       actionPayload: { topic: 'checkin_checkout' }
     };
   }
 
   // Dining / Restaurants / Cardápio
-  if (lower.includes('jantar') || lower.includes('restaurante') || lower.includes('comida') || lower.includes('éos') || lower.includes('eos') || lower.includes('rooftop') || lower.includes('cardápio') || lower.includes('cardapio') || lower.includes('michelin') || lower.includes('menu')) {
+  if (lower.includes('jantar') || lower.includes('restaurante') || lower.includes('comida') || lower.includes('éos') || lower.includes('eos') || lower.includes('rooftop') || lower.includes('cardápio') || lower.includes('cardapio')) {
     return {
-      reply: '🍽️ Nossa alta gastronomia dispõe do Restaurante Éos (2★ Michelin do Chef Matteo Valente, menu degustação 9 tempos, €320) e do Horizon Rooftop Lounge. Para o Room Service, temos Filé Mignon ao Molho Madeira (R$ 89), Salmão Grelhado (R$ 78) e Dom Pérignon Vintage (€290). Gostaria de solicitar algum prato para sua suíte?',
+      reply: '🍽️ Nossa alta gastronomia dispõe do Restaurante Éos (2★ Michelin do Chef Matteo Valente, menu degustação 9 tempos, €320) e do Horizon Rooftop Lounge. Para o Room Service, posso oferecer sugestões do cardápio da suíte.',
       actionType: 'room_service',
       actionPayload: {
         items: [
@@ -144,9 +163,9 @@ function generateLocalConciergeReply(userMessage: string): { reply: string; acti
   }
 
   // Room Service / Orders
-  if (lower.includes('room service') || lower.includes('champagne') || lower.includes('caviar') || lower.includes('quarto') || lower.includes('pedir') || lower.includes('café da manhã') || lower.includes('vinho')) {
+  if (lower.includes('room service') || lower.includes('champagne') || lower.includes('caviar') || lower.includes('quarto') || lower.includes('pedir') || lower.includes('café da manhã') || lower.includes('cafe da manha')) {
     return {
-      reply: '🍾 O Room Service do Sanctuário funciona ininterruptamente 24 horas. Posso providenciar de imediato à sua acomodação Champagne Dom Pérignon Vintage (€290), Caviar Imperial 50g (€180), Filé Mignon ao Molho Madeira (R$ 89) ou Tábua de Queijos Trufados (R$ 95). Deseja confirmar seu pedido?',
+      reply: '🍾 O Room Service do Sanctuário funciona ininterruptamente 24 horas. Posso providenciar de imediato à sua acomodação Champagne Dom Pérignon Vintage (€290), Caviar Imperial (€180), Filé Mignon ao Molho Madeira (R$ 89) e Tábua de Queijos & Trufas (R$ 95).',
       actionType: 'room_service',
       actionPayload: {
         items: [
@@ -162,7 +181,7 @@ function generateLocalConciergeReply(userMessage: string): { reply: string; acti
   // Spa / Wellness
   if (lower.includes('spa') || lower.includes('massagem') || lower.includes('termas') || lower.includes('relaxar') || lower.includes('facial') || lower.includes('vinoterapia')) {
     return {
-      reply: '💆 Nosso Spa Botânico nas termas vulcânicas funciona das 09h00 às 21h00:\n• Circuito de Águas Termais & Elixir Francês (120 min · €290)\n• Massagem Ayurvédica Prana com Pedras Vulcânicas (90 min · €240)\n• Ritual Íntimo de Vinoterapia para Casal (150 min · €580)\nQual horário prefere reservar para seu relaxamento?',
+      reply: '💆 Nosso Spa Botânico nas termas vulcânicas funciona das 09h00 às 21h00:\n• Circuito de Águas Termais & Elixir Francês (120 min · €290)\n• Massagem Ayurvédica Prana com Pedras Vulcânicas (90 min · €240)\n• Ritual Íntimo de Vinoterapia para Casal (150 min · €580)',
       actionType: 'spa_booking',
       actionPayload: {
         rituals: [
@@ -175,9 +194,9 @@ function generateLocalConciergeReply(userMessage: string): { reply: string; acti
   }
 
   // Amenities / Heliponto / Maybach
-  if (lower.includes('heliponto') || lower.includes('transfer') || lower.includes('maybach') || lower.includes('amenidades') || lower.includes('piscina') || lower.includes('travesseiro') || lower.includes('wifi')) {
+  if (lower.includes('heliponto') || lower.includes('transfer') || lower.includes('maybach') || lower.includes('amenidades') || lower.includes('piscina') || lower.includes('travesseiro') || lower.includes('wi-fi') || lower.includes('wifi')) {
     return {
-      reply: '✨ Todas as acomodações do Sanctuário contam com amenidades Bulgari Au Thé Vert e Hermès Paris, enxoval Trousseau 1000 fios, som Bang & Olufsen, isolamento acústico STC 65, heliponto homologado IFR e frota de Mercedes-Maybach S-Class para seus traslados privativos.',
+      reply: '✨ Todas as acomodações do Sanctuário contam com amenidades Bulgari Au Thé Vert e Hermès Paris, enxoval Trousseau 1000 fios, som Bang & Olufsen, isolamento acústico STC 65, heliponto privativo e Wi‑Fi de 1 Gbps.',
       actionType: 'faq',
       actionPayload: { topic: 'amenities' }
     };
@@ -185,7 +204,7 @@ function generateLocalConciergeReply(userMessage: string): { reply: string; acti
 
   // Default Polite Concierge Response
   return {
-    reply: 'É uma satisfação atender você no Sanctuário Hotel & Spa 5★. Como Concierge Virtual movido a Gemini AI, posso informar sobre nossos restaurantes Michelin e cardápios, agendar rituais no spa termal, solicitar itens à sua suíte ou conectar você diretamente ao nosso Head Butler humano. Em que posso auxiliá-lo?',
+    reply: 'É uma satisfação atender você no Sanctuário Hotel & Spa 5★. Como Concierge Virtual movido a Gemini AI, posso informar sobre nossos restaurantes Michelin e cardápios, agendar experiências de spa, orientar sobre check-in/check-out e conectar a um atendente humano.',
     actionType: 'faq',
     actionPayload: { topic: 'general' }
   };
@@ -203,7 +222,8 @@ async function startServer() {
       service: 'Google Gemini AI',
       model: 'gemini-3.8-flash',
       active: true,
-      hasApiKey: hasKey
+      hasApiKey: hasKey,
+      connectedToProjectSenai: Boolean(PROJETO_SENAI_URL)
     });
   });
 
@@ -215,6 +235,22 @@ async function startServer() {
       if (!message || typeof message !== 'string') {
         res.status(400).json({ error: 'Mensagem inválida.' });
         return;
+      }
+
+      if (PROJETO_SENAI_URL) {
+        try {
+          const externalReply = await callProjectSenaiAgent(message, history);
+          if (externalReply?.reply) {
+            res.json({
+              ...externalReply,
+              source: 'projectosenai_agent',
+              model: externalReply.model || 'gemini-2.5-flash'
+            });
+            return;
+          }
+        } catch (forwardError) {
+          console.warn('[Server] External ProjectSenai unavailable, falling back to local luxury engine:', forwardError);
+        }
       }
 
       // Check if Gemini API Key is available and valid
@@ -266,7 +302,7 @@ async function startServer() {
               phone: '+55 11 9999-9988',
               whatsapp: '+55 11 99999-5555'
             };
-          } else if (lowerMsg.includes('cardápio') || lowerMsg.includes('cardapio') || lowerMsg.includes('menu') || lowerMsg.includes('filé') || lowerMsg.includes('champagne') || lowerMsg.includes('caviar') || lowerMsg.includes('room service')) {
+          } else if (lowerMsg.includes('cardápio') || lowerMsg.includes('cardapio') || lowerMsg.includes('menu') || lowerMsg.includes('filé') || lowerMsg.includes('champagne') || lowerMsg.includes('caviar')) {
             actionType = 'room_service';
             actionPayload = {
               items: [
@@ -335,7 +371,11 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Sanctuário 5★ Full-Stack server running with Gemini AI at http://0.0.0.0:${PORT}`);
+    if (PROJETO_SENAI_URL) {
+      console.log(`External ProjectSenai bridge active: ${PROJETO_SENAI_URL}`);
+    }
   });
 }
 
 startServer();
+
